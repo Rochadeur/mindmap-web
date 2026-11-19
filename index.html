@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<title>Mindmap</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icon64.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Mindmap">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#26282B" media="(prefers-color-scheme: dark)">
+<style>
+:root {
+  --bg: #F9F8F5; --bar: #FFFFFF; --bar-border: #E4E2DC; --fg: #212429; --muted: #6B6F78;
+  --hover: #EFEEEA; --menu: #FFFFFF; --menu-border: #D9D7D0; --accent: #2F7BF6; --danger: #D13438;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #1D1F21; --bar: #26282B; --bar-border: #34363A; --fg: #EBEBED; --muted: #A3A6AD;
+    --hover: #34373B; --menu: #2B2D31; --menu-border: #45484D; --accent: #4C8DFF; --danger: #FF6B6E; }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--fg);
+  font: 13px -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; user-select: none; -webkit-user-select: none;
+  -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; overscroll-behavior: none; }
+body.busy, body.busy * { cursor: progress !important; }
+#top { height: 40px; display: flex; align-items: center; gap: 8px; padding: 0 8px 0 4px;
+  background: var(--bar); border-bottom: 1px solid var(--bar-border); }
+.menubar { display: flex; gap: 2px; }
+.menubtn { padding: 5px 10px; border-radius: 5px; cursor: default; }
+.menubtn:hover, .menubtn.open { background: var(--hover); }
+.toolbar { display: flex; align-items: center; gap: 2px; }
+.toolbar button { width: 34px; height: 30px; border: 0; border-radius: 6px; background: transparent; color: var(--fg);
+  display: grid; place-items: center; cursor: default; padding: 0; }
+.toolbar button:hover { background: var(--hover); }
+.toolbar button:active { background: var(--bar-border); }
+.toolbar svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.toolbar .gap { width: 1px; height: 20px; background: var(--bar-border); margin: 0 6px; }
+#zoomLabel { min-width: 52px; text-align: center; color: var(--muted); font-variant-numeric: tabular-nums; }
+#stage { position: absolute; top: 40px; left: 0; right: 0; bottom: 0; outline: none; overflow: hidden; cursor: default; touch-action: none; }
+#stage.panning { cursor: grabbing; }
+#canvas { width: 100%; height: 100%; display: block; }
+#editor { position: absolute; display: none; border: 0; outline: 2px solid var(--accent); border-radius: 4px; resize: none;
+  overflow: hidden; padding: 0; margin: 0; text-align: center; user-select: text; -webkit-user-select: text; }
+#dropdown, #ctxmenu { position: fixed; display: none; z-index: 10; min-width: 250px; background: var(--menu);
+  border: 1px solid var(--menu-border); border-radius: 8px; padding: 4px; box-shadow: 0 8px 24px rgba(0,0,0,.18); }
+.mi { display: flex; justify-content: space-between; gap: 24px; padding: 6px 10px; border-radius: 5px; cursor: default; white-space: nowrap; }
+.mi:hover { background: var(--hover); }
+.mi kbd { font: inherit; color: var(--muted); }
+.mi.disabled { opacity: .4; } .mi.disabled:hover { background: none; }
+.mi.danger span { color: var(--danger); }
+.sep { height: 1px; background: var(--menu-border); margin: 4px 6px; }
+.mlabel { padding: 4px 10px 2px; color: var(--muted); font-size: 12px; }
+.swatches { display: flex; gap: 6px; padding: 6px 10px 6px; }
+.sw { width: 20px; height: 20px; border-radius: 50%; border: 2px solid transparent; padding: 0; cursor: default; }
+.sw:hover { transform: scale(1.15); }
+.sw.on { border-color: var(--fg); }
+#modal { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(0,0,0,.3); z-index: 20; }
+#modal .box { background: var(--menu); border: 1px solid var(--menu-border); border-radius: 10px; padding: 18px 22px; max-width: 640px;
+  max-height: 85vh; overflow: auto; box-shadow: 0 16px 48px rgba(0,0,0,.3); user-select: text; }
+#modal h2 { margin: 0 0 10px; font-size: 17px; }
+#modal td { padding: 4px 16px 4px 0; vertical-align: top; } #modal td:first-child { font-weight: 600; white-space: nowrap; }
+#modal .actions { text-align: right; margin-top: 14px; }
+#modal button { font: inherit; padding: 6px 18px; border-radius: 6px; border: 1px solid var(--menu-border); background: var(--bar); color: var(--fg); margin-left: 8px; }
+#modal button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+#modal button.danger { color: var(--danger); }
+#modal ol { padding-left: 20px; } #modal li { margin: 6px 0; }
+#docTitle { flex: 1; min-width: 0; text-align: center; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#docTitle.dirty::before { content: '• '; color: var(--accent); }
+#menuBtn { display: none; width: 44px; height: 44px; border: 0; border-radius: 8px; background: transparent; color: var(--fg); place-items: center; padding: 0; }
+#menuBtn svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+.toolbar .mobile { display: none; }
+@media (hover: none) { .toolbar button:hover, .menubtn:hover, .mi:hover { background: transparent; } }
+/* iPhone, iPad und schmale Fenster */
+@media (max-width: 760px), (pointer: coarse) {
+  html, body { font-size: 15px; }
+  #top { height: calc(48px + env(safe-area-inset-top)); padding: env(safe-area-inset-top) calc(6px + env(safe-area-inset-right)) 0 calc(6px + env(safe-area-inset-left)); }
+  .menubar { display: none; }
+  #menuBtn { display: grid; }
+  #stage { top: calc(48px + env(safe-area-inset-top)); bottom: calc(58px + env(safe-area-inset-bottom)); }
+  #docTitle { color: var(--fg); font-weight: 600; }
+  .toolbar.main { position: fixed; left: 0; right: 0; bottom: 0; z-index: 5; height: calc(58px + env(safe-area-inset-bottom));
+    padding: 0 calc(4px + env(safe-area-inset-right)) env(safe-area-inset-bottom) calc(4px + env(safe-area-inset-left));
+    background: var(--bar); border-top: 1px solid var(--bar-border); justify-content: space-around; }
+  .toolbar.main .desk, .toolbar.main .gap, #zoomLabel { display: none; }
+  .toolbar .mobile { display: grid; }
+  .toolbar button { width: 44px; height: 44px; touch-action: manipulation; }
+  .toolbar svg { width: 24px; height: 24px; }
+  #dropdown { max-height: calc(100vh - 140px); overflow: auto; min-width: 270px; }
+  .mi { padding: 11px 12px; } .mi kbd { display: none; } .mi.checked kbd { display: inline; }
+  .sw { width: 30px; height: 30px; } .swatches { gap: 8px; flex-wrap: wrap; max-width: 260px; }
+  #modal .box { margin: 16px; } #modal button { padding: 10px 18px; margin-top: 6px; }
+}
+</style>
+</head>
+<body>
+<div id="top">
+  <div class="menubar">
+    <div class="menubtn" data-menu="datei">Datei</div>
+    <div class="menubtn" data-menu="bearbeiten">Bearbeiten</div>
+    <div class="menubtn" data-menu="ansicht">Ansicht</div>
+    <div class="menubtn" data-menu="hilfe">Hilfe</div>
+  </div>
+  <button id="menuBtn" class="toolbtn" title="Menü" aria-label="Menü"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+  <div id="docTitle"><span id="docName">Unbenannt</span></div>
+  <div class="toolbar">
+    <button data-tool="open" title="Öffnen (Strg+O)"><svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></button>
+    <button data-tool="save" title="Sichern (Strg+S)"><svg viewBox="0 0 24 24"><path d="M5 4h11l4 4v11a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z"/><path d="M8 4v5h7V4M8 20v-6h8v6"/></svg></button>
+  </div>
+  <div class="toolbar main">
+    <button data-tool="undo" title="Rückgängig (Strg+Z)"><svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg></button>
+    <button data-tool="redo" title="Wiederholen (Strg+Y)"><svg viewBox="0 0 24 24"><path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/></svg></button>
+    <span class="gap"></span>
+    <button data-tool="addChild" title="Unterthema hinzufügen (Tab)"><svg viewBox="0 0 24 24"><path d="M4 4v6a4 4 0 0 0 4 4h12"/><path d="m16 10 4 4-4 4"/></svg></button>
+    <button data-tool="addSibling" title="Thema danach hinzufügen (Enter)"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M12 8v8M8 12h8"/></svg></button>
+    <button data-tool="rename" class="mobile" title="Umbenennen (F2)"><svg viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13.5 6.5 4 4"/></svg></button>
+    <button data-tool="color" class="mobile" title="Farbe und mehr"><svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.6-.8 1.6-1.6 0-.5-.2-.8-.4-1.1-.3-.3-.4-.6-.4-1.1 0-.9.7-1.6 1.6-1.6H16a5 5 0 0 0 5-5C21 6.5 17 3 12 3z"/><circle cx="7.5" cy="11" r="1.2"/><circle cx="10" cy="7" r="1.2"/><circle cx="15" cy="7" r="1.2"/></svg></button>
+    <button data-tool="delete" title="Thema löschen (Entf)"><svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/></svg></button>
+    <button data-tool="arrange" class="desk" title="Gleichmäßig anordnen (Strg+Umschalt+L)"><svg viewBox="0 0 24 24"><path d="M4 8h16M16 4l4 4-4 4"/><path d="M20 16H4M8 12l-4 4 4 4"/></svg></button>
+    <span class="gap"></span>
+    <button data-tool="zoomOut" class="desk" title="Verkleinern (Strg −)"><svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m20 20-4.8-4.8M7.5 10.5h6"/></svg></button>
+    <span id="zoomLabel">100 %</span>
+    <button data-tool="zoomIn" class="desk" title="Vergrößern (Strg +)"><svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m20 20-4.8-4.8M7.5 10.5h6M10.5 7.5v6"/></svg></button>
+    <button data-tool="fit" title="Ganze Map zeigen (Strg+Umschalt+0)"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/><rect x="8" y="9" width="8" height="6" rx="2"/></svg></button>
+  </div>
+</div>
+<div id="stage" tabindex="0">
+  <svg id="canvas" xmlns="http://www.w3.org/2000/svg"><g id="world"></g></svg>
+  <textarea id="editor" spellcheck="false" rows="1" aria-label="Thema umbenennen"></textarea>
+</div>
+<div id="dropdown"></div>
+<div id="ctxmenu"></div>
+<div id="modal"><div class="box"><h2 id="modalTitle"></h2><div id="modalBody"></div><div class="actions" id="modalActions"></div></div></div>
+<!--SCRIPTS-->
+<script src="vendor/jspdf.umd.min.js"></script>
+<script src="vendor/svg2pdf.umd.min.js"></script>
+<script src="model.js"></script>
+<script src="app.js"></script>
+<!--/SCRIPTS-->
+</body>
+</html>
